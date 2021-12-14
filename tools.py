@@ -154,7 +154,7 @@ def fill_nan(clinic_list):
     return [item if not math.isnan(item) else mean for item in clinic_list]
 
 
-def get_heat_map_data(K, label):
+def get_heat_map_data(main_path, K, label):
     pt_ids = np.load("data/ptid.npy", allow_pickle=True)
     pt_dic = load_patient_dictionary(main_path)
     dim_0 = len(list(pt_dic.keys()))
@@ -256,7 +256,7 @@ def save_record(main_path, index, distribution_string, judge, judge_params, comm
 
 def build_kmeans_result(main_path, kmeans_labels):
     kmeans_labels = np.asarray(kmeans_labels)
-    res1 = get_heat_map_data(5, kmeans_labels)
+    res1 = get_heat_map_data(main_path, 5, kmeans_labels)
     judge, judge_params, distribution_string = judge_good_train(kmeans_labels, res1, False)
     print(judge, judge_params, distribution_string)
     save_record(main_path, -1, distribution_string, -1, judge_params, "kmeans_base")
@@ -271,7 +271,7 @@ def get_start_index(main_path):
 
 def get_ac_tpc_result(main_path, index):
     labels = np.load(main_path + 'saves/{}/proposed/trained/results/labels.npy'.format(index))
-    res = get_heat_map_data(5, labels)
+    res = get_heat_map_data(main_path, 5, labels)
     return res
 
 
@@ -448,7 +448,7 @@ if __name__ == "__main__":
     # build_cn_ad_labels(main_path)
     data_x = load_data(main_path, "/data/data_x_new.npy")
     base_res = np.load("data/initial/base_res.npy", allow_pickle=True)
-    #res = get_heat_map_data(5, base_res)
+    #res = get_heat_map_data(main_path, 5, base_res)
     draw_heat_map_2(base_res, base_res)
     # build_patient_dictionary(main_path)
     # pt_dic = load_patient_dictionary(main_path)
