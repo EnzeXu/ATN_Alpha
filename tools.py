@@ -316,7 +316,7 @@ def create_label_string(cluster_labels, const_cn_ad_labels):
 def initial_record(main_path, data_x, seed_count=10):
     if not os.path.exists(main_path + "record/record.csv"):
         copyfile(main_path + "record/record_0.csv", main_path + "record/record.csv")
-        clinical_judge_labels = [item + "_var" for item in CLINICAL_LABELS]
+        clinical_judge_labels = ["Cluster_std"] + [item + "_var" for item in CLINICAL_LABELS]
         dic = dict()
         res_all = []
         for one_label in clinical_judge_labels:
