@@ -36,7 +36,7 @@ from class_AC_TPC import AC_TPC, initialize_embedding
 from tools import *
 
 
-def train(main_path, data_x, data_name, parameters, base_dic, base_res, print_flag=True):
+def train(main_path, opt, data_x, data_name, parameters, base_dic, base_res, print_flag=True):
     # enze_patient_data = np.load(main_path + "data/enze_patient_data_new.npy", allow_pickle=True)
     # enze_patient_data = np.asarray(enze_patient_data)
     pt_dic = load_patient_dictionary(main_path)
@@ -96,7 +96,7 @@ def train(main_path, data_x, data_name, parameters, base_dic, base_res, print_fl
     # data_name = '10'
     ITERATION = parameters.get("iteration_s3")  # 1000  # 3750
     check_step = parameters.get("check_step_s3")  # 250  # 250
-    save_path = main_path + 'saves/{}/proposed/init/'.format(data_name)  # ENZE updated
+    save_path = main_path + 'saves/{}/{}/proposed/init/'.format(opt.data, data_name)  # ENZE updated
     if not os.path.exists(save_path + '/models/'):
         os.makedirs(save_path + '/models/')
     tf.reset_default_graph()
@@ -133,7 +133,7 @@ def train(main_path, data_x, data_name, parameters, base_dic, base_res, print_fl
     keep_prob = parameters.get("keep_prob_s4")  # 0.7
     lr_rate1 = parameters.get("lr_rate1")  # 0.0001  # 0.0001
     lr_rate2 = parameters.get("lr_rate2")  # 0.0001  # 0.0001
-    save_path = main_path + 'saves/{}/proposed/trained/'.format(data_name)  # ENZE updated
+    save_path = main_path + 'saves/{}/{}/proposed/trained/'.format(opt.data, data_name)  # ENZE updated
     if not os.path.exists(save_path + '/models/'):
         os.makedirs(save_path + '/models/')
     if not os.path.exists(save_path + '/results/'):
@@ -142,7 +142,7 @@ def train(main_path, data_x, data_name, parameters, base_dic, base_res, print_fl
     # LOAD INITIALIZED NETWORK
     if print_flag:
         print("[{:0>4d}][Step 5] Load initialized network".format(data_name))
-    load_path = main_path + 'saves/{}/proposed/init/'.format(data_name)  # ENZE updated
+    load_path = main_path + 'saves/{}/{}/proposed/init/'.format(opt.data, data_name)  # ENZE updated
     tf.reset_default_graph()
     # Turn on xla optimization
     config = tf.ConfigProto()
@@ -312,7 +312,7 @@ def train(main_path, data_x, data_name, parameters, base_dic, base_res, print_fl
         f.write(string)
 
     heat_map_data = get_heat_map_data(main_path, 5, patientProgressions)
-    draw_heat_map_2(base_res, heat_map_data, main_path + "saves/{}/heatmap.png".format(data_name))
+    draw_heat_map_2(base_res, heat_map_data, main_path + "saves/{}/{}/heatmap.png".format(opt.data, data_name))
     # print(heat_map_data)
     judge, judge_params, distribution_string = judge_good_train(patientProgressions, heat_map_data, True, base_dic, base_res)
     return judge, judge_params, distribution_string
@@ -331,9 +331,9 @@ def start(params, opt):
     start_index = get_start_index(main_path, opt.data)
 
     for i in range(times):
-        j, p, ds = train(main_path, data_x, start_index + i, params, base_dic, base_res)
+        j, p, ds = train(main_path, opt, data_x, start_index + i, params, base_dic, base_res)
         save_record(main_path, start_index + i, ds, j, p, comments, opt.data, params)
-        get_start_index(main_path, opt.data)
+        # get_start_index(main_path, opt.data)
 
 
 if __name__ == "__main__":

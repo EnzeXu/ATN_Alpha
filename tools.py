@@ -340,15 +340,15 @@ def initial_record(main_path, data_x, data_name, seed_count=10):
                 dic[one_label] += tmp_params.get(one_label)
         for one_label in clinical_judge_labels:
             dic[one_label] = round(dic[one_label] / seed_count, 2)
-        with open("data/initial/base_dic.pkl", "wb") as f:
+        with open("data/initial/{}/base_dic.pkl".format(data_name), "wb") as f:
             pickle.dump(dic, f)
-        np.save("data/initial/base_res.npy", res_all[0], allow_pickle=True)
+        np.save("data/initial/{}/base_res.npy".format(data_name), res_all[0], allow_pickle=True)
         save_record(main_path, 0, "None", -1, dic, "kmeans_base_average", data_name)
         return dic, res_all[0]
     else:
-        with open("data/initial/base_dic.pkl", "rb") as f:
+        with open("data/initial/{}/base_dic.pkl".format(data_name), "rb") as f:
             dic = pickle.load(f)
-        base_res = np.load("data/initial/base_res.npy", allow_pickle=True)
+        base_res = np.load("data/initial/{}/base_res.npy".format(data_name), allow_pickle=True)
         return dic, base_res
 
 
