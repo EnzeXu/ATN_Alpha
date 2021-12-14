@@ -301,7 +301,7 @@ def create_label_string(cluster_labels, const_cn_ad_labels):
 
     for i in range(len(cluster_labels)):
         for j in range(len(cluster_labels[0])):
-            tmp_cluster_id = cluster_labels[i][j]
+            tmp_cluster_id = cluster_labels[i][j] if type(cluster_labels[i][j]) == int else int(cluster_labels[i][j][0])
             if const_cn_ad_labels[i][j] == "AD":
                 dic_list[tmp_cluster_id]["AD"] += 1
             elif const_cn_ad_labels[i][j] == "CN":
