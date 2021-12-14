@@ -336,7 +336,7 @@ def initial_record(main_path, data_x, seed_count=10):
         save_record(main_path, 0, "None", -1, dic, "kmeans_base_average")
         return dic, res_all[0]
     else:
-        with open("data/initial/base_dic.pkl", "wb") as f:
+        with open("data/initial/base_dic.pkl", "rb") as f:
             dic = pickle.load(f)
         base_res = np.load("data/initial/base_res.npy", allow_pickle=True)
         return dic, base_res
