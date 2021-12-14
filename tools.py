@@ -216,7 +216,7 @@ def judge_good_train(labels, heat_map_data, flag=True, base_dic=None, base_res=N
     if flag:
         judge = 1
         for one_label in clinical_judge_labels:
-            if param_dic.get(one_label) > base_dic.get(one_label):
+            if np.isnan(param_dic.get(one_label)) or param_dic.get(one_label) > base_dic.get(one_label):
                 judge = 0
                 break
     else:
@@ -265,7 +265,7 @@ def build_kmeans_result(main_path, kmeans_labels):
 
 def get_start_index(main_path):
     df = pd.read_csv(main_path + "record/record.csv")
-    start_index = sorted(list(df["Id"]), key=lambda x: x)[-1] + 1
+    start_index = list(df["Id"])[-1] + 1
     return start_index
 
 

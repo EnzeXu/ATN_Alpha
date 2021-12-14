@@ -327,7 +327,7 @@ def start(params, opt):
         comments = platform.platform()
 
     data_x = load_data(main_path, "/data/data_x/data_x_{}.npy".format(opt.data))
-    base_dic, base_res = initial_record(main_path, data_x, 2)
+    base_dic, base_res = initial_record(main_path, data_x, 5)
     start_index = get_start_index(main_path)
 
     for i in range(times):
