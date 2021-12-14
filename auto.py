@@ -17,7 +17,7 @@ import os
 import sys
 import math
 import platform
-
+import argparse
 from tensorflow.python.ops.rnn import _transpose_batch_time
 from sklearn.model_selection import train_test_split
 
@@ -36,17 +36,14 @@ from class_AC_TPC import AC_TPC, initialize_embedding
 from tools import *
 
 
-def train(main_path, data_name, parameters, print_flag=True):
-    enze_patient_data = np.load(main_path + "data/enze_patient_data_new.npy", allow_pickle=True)
-    enze_patient_data = np.asarray(enze_patient_data)
-    # labels = build_labels(main_path, enze_patient_data)
-    # labels = np.reshape(labels, [320, 2, 14])
-    # data_y = get_data_y(labels)
-    # data_x = get_data_x(enze_patient_data)
+def train(main_path, data_x, data_name, parameters, base_dic, base_res, print_flag=True):
+    # enze_patient_data = np.load(main_path + "data/enze_patient_data_new.npy", allow_pickle=True)
+    # enze_patient_data = np.asarray(enze_patient_data)
+    pt_dic = load_patient_dictionary(main_path)
     if print_flag:
         print("[{:0>4d}][Step 1] Loading data".format(data_name))
-    data_x = load_data(main_path, "/data/data_x_new.npy")
-    data_y = load_data(main_path, "/data/data_y_new.npy")
+    # data_x = load_data(main_path, "/data/data_x_new.npy")
+    data_y = load_data(main_path, "/data/data_y/data_y.npy")
     seed = 1234
     tr_data_x, te_data_x, tr_data_y, te_data_y = train_test_split(
         data_x, data_y, test_size=0.2, random_state=seed
@@ -314,13 +311,28 @@ def train(main_path, data_name, parameters, print_flag=True):
         )
         f.write(string)
 
-    heat_map_data = get_heat_map_data(5, enze_patient_data, patientProgressions, main_path + 'data/MRI_information_All_Measurement.xlsx')
-    # print(enze_patient_data)
+    heat_map_data = get_heat_map_data(5, patientProgressions)
+    draw_heat_map_2(base_res, heat_map_data, main_path + "saves/{}/heatmap.png".format(data_name))
     # print(heat_map_data)
-    pt_id_list = [item[0][3] for item in enze_patient_data]
-    cn_ad_labels = get_cn_ad_labels(main_path, pt_id_list)
-    judge, judge_params, distribution_string = judge_good_train(patientProgressions, heat_map_data, cn_ad_labels)
+    judge, judge_params, distribution_string = judge_good_train(patientProgressions, heat_map_data, True, base_dic, base_res)
     return judge, judge_params, distribution_string
+
+
+def start(params, opt):
+    main_path = os.path.dirname(os.path.abspath("__file__")) + "/"  # "E:/Workspace_WFU/ATN/Auto/"
+    times = int(opt.num)
+    if len(opt.comment) > 2:
+        comments = platform.platform() + ": " + opt.comment
+    else:
+        comments = platform.platform()
+
+    data_x = load_data(main_path, "/data/data_x/data_x_{}.npy".format(opt.data))
+    base_dic, base_res = initial_record(main_path, data_x, 2)
+    start_index = get_start_index(main_path)
+
+    for i in range(times):
+        j, p, ds = train(main_path, data_x, start_index + i, params, base_dic, base_res)
+        save_record(main_path, start_index + i, ds, j, p, comments, params)
 
 
 if __name__ == "__main__":
@@ -355,24 +367,14 @@ if __name__ == "__main__":
         'check_step_s7': 100        # 100
     }
     print(json.dumps(params, indent=4, ensure_ascii=False))
-
-    main_path = os.path.dirname(os.path.abspath("__file__")) + "/"  # "E:/Workspace_WFU/ATN/Auto/"
-    if len(sys.argv) > 1:
-        times = int(sys.argv[1])
-    else:
-        times = 1000
-    if len(sys.argv) > 2:
-        comments = platform.platform() + ": " + sys.argv[2]
-    else:
-        comments = platform.platform()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--num", default=500, help="number of training")
+    parser.add_argument("--comment", default="", help="any comment")
+    parser.add_argument("--data", default="alpha1", help="dataset of data_x (alpha1, alpha2, alpha3 or alpha4)")
+    opt = parser.parse_args()
+    start(params, opt)
 
 
-    initial_record()
-    start_index = get_start_index(main_path)
-    
-    for i in range(times):
-        j, p, ds = train(main_path, start_index + i, params)
-        save_record(main_path, start_index + i, ds, j, p, comments, params)
 
 
 

@@ -2,3 +2,4 @@
 __pycache__/*
 ~*
 atn_data_x_n.npy
+.DS_Store

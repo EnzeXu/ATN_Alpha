@@ -1,7 +1,7 @@
 
-ATN_Auto
+ATN_Alpha
 ===========================
-This document is the description of work for ATN_Auto
+This document is the description of work for ATN_Alpha
 
 ****
  
@@ -9,9 +9,10 @@ This document is the description of work for ATN_Auto
 | ---- | ---- |
 | ATN_Auto | Enze Xu (xue20@wfu.edu) & Jingwen Zhang (zhanj318@wfu.edu) |
 
-| Version | Date |
-| ---- | ---- |
-| v1.0 | 11/17/2021 |
+| Version | Date       |
+|---------|------------|
+| v1.0    | 11/17/2021 |
+| v2.0    | 12/13/2021 |
 
 | Python Version | Platform | GPU or CPU |
 | ---- | ---- | ---- |
@@ -43,9 +44,8 @@ $ virtualenv atn_env
 ```shell
 $ source /deac/csc/chenGrp/software/tensorflow/bin/activate # activate virtual environment
 (atn_env) $ cd ~/workspace
-(atn_env) $ git clone https://github.com/EnzeXu/ATN_Auto.git
-(atn_env) $ cd ATN_Auto
-(atn_env) $ tar jxvf data/atn_data_x_n.tar.bz2 -C data # IMPORTANT
+(atn_env) $ git clone https://github.com/EnzeXu/ATN_Alpha.git
+(atn_env) $ cd ATN_Alpha
 (atn_env) $ pip install -r requirements.txt
 (atn_env) $ python auto.py 1 test # python auto.py [times_of_loop] [any_comments]
 # It is normal to see huge warnings at this step, but don't worry.

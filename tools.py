@@ -11,6 +11,12 @@ import os
 import platform
 import json
 from shutil import copyfile
+from tqdm import tqdm
+import pickle
+import sklearn
+from sklearn.cluster import KMeans
+from strings import CLINICAL_LABELS
+import scipy.io as scio
 
 
 def f_get_minibatch(mb_size, x, y):
@@ -40,53 +46,6 @@ def purity_score(y_true, y_pred):
     return np.sum(np.amax(c_matrix, axis=0)) / np.sum(c_matrix)
 
 
-def build_labels(main_path, patientData4Visits):
-    clinical_score = pd.read_excel(main_path + 'data/MRI_information_All_Measurement.xlsx', engine=get_engine())
-    scores = clinical_score.iloc[:, 26:49]  # 21:26
-    scores = pd.DataFrame(scores)
-    from sklearn.preprocessing import MinMaxScaler
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    rescaledX = scaler.fit_transform(scores)
-    np.set_printoptions(precision=3)  # Setting precision for the output
-    scores = rescaledX
-    scores = pd.DataFrame(scores)
-    scores.columns = ['RAVLT_immediate', 'RAVLT_learning', 'RAVLT_forgetting', 'RAVLT_perc_forgetting', 'LDELTOTAL',
-                      'DIGITSCOR', 'TRABSCOR', 'FAQ', 'MOCA', 'EcogPtMem', 'EcogPtLang', 'EcogPtVisspat', 'EcogPtPlan',
-                      'EcogPtOrgan', 'EcogPtDivatt', 'EcogPtTotal', 'EcogSPMem', 'EcogSPLang', 'EcogSPVisspat',
-                      'EcogSPPlan', 'EcogSPOrgan', 'EcogSPDivatt', 'EcogSPTotal']
-    header = clinical_score.iloc[:, :15]
-    scores = pd.concat([header, scores], axis=1)
-    labels = []
-    for i in range(len(patientData4Visits)):
-        patient = []
-        patientIndex = patientData4Visits[i][0][3]
-        print("PTID = {} ".format(patientIndex), end="")
-        for j in range(2):  # range(4)
-            visit = []
-            if j == 0:  # first
-                viscode = clinical_score.loc[
-                    (clinical_score["PTID"] == patientIndex) & (pd.notnull(clinical_score["EcogPtMem"]))][
-                    "VISCODE"].values[0]
-                print("FIRST = {} ".format(viscode), end="")
-            else:  # last
-                viscode = clinical_score.loc[
-                    (clinical_score["PTID"] == patientIndex) & (pd.notnull(clinical_score["EcogPtMem"]))][
-                    "VISCODE"].values[-1]
-                print("LAST = {}".format(viscode))
-
-            columns = ['EcogPtMem', 'EcogPtLang', 'EcogPtVisspat', 'EcogPtPlan', 'EcogPtOrgan', 'EcogPtDivatt',
-                       'EcogPtTotal', 'EcogSPMem', 'EcogSPLang', 'EcogSPVisspat', 'EcogSPPlan', 'EcogSPOrgan',
-                       'EcogSPDivatt', 'EcogSPTotal']
-            for index in range(14):  # for index in range(14):
-                a = scores.loc[(clinical_score["PTID"] == patientIndex) & (clinical_score["VISCODE"] == viscode)][
-                    columns[index]]  # ENZE updated
-                a = a.values[0] if len(a) > 0 else np.nan  # ENZE updated
-                visit.append(a)
-            patient.append(visit)
-        labels.append(patient)
-    return np.asarray(labels)
-
-
 def get_data_y(data_y):
     for i in range(len(data_y)):
         for k in range(14):
@@ -112,27 +71,6 @@ def get_data_y(data_y):
                 if math.isnan(data_y[i][j][k]):
                     data_y[i][j][k] = 0.5
     return np.asarray(data_y)
-
-
-def get_data_x(patientData4Visits):
-    data_x = []
-    # data_y = []
-
-    for i in patientData4Visits:
-        # print(len(i))
-        patientArray = []
-        patientLabels = []
-        for j in range(len(i)):
-            if j == 0:
-                timeDiff = 0
-            else:
-                timeDiff = minus_to_month(i[j - 1][2], i[j][2])
-            featureArray = np.insert(i[j][0], 0, timeDiff)
-            patientArray.append(featureArray)
-            patientLabels.append(i[j][1])
-        patientArray = np.asarray(patientArray)
-        data_x.append(patientArray)
-    return np.asarray(data_x)
 
 
 def string_to_stamp(string, string_format="%Y%m%d"):
@@ -164,16 +102,16 @@ def draw_heat_map(data, s=2):
     plt.show()
 
 
-def draw_heat_map_2(data1, data2, s=2):
+def draw_heat_map_2(data1, data2, save_path, s=2):
     data1 = np.asarray(data1)
     data1_normed = np.abs((data1 - data1.mean(axis=0)) / data1.std(axis=0))
     data1_normed = data1_normed / s
     data2 = np.asarray(data2)
     data2_normed = np.abs((data2 - data2.mean(axis=0)) / data2.std(axis=0))
     data2_normed = data2_normed / s
-    xlabels = ["MMSE", "CDRSB", "ADAS13"]
+    xlabels = CLINICAL_LABELS
     ylabels = ["Subtype #{0}".format(i) for i in range(1, 6)]
-    fig = plt.figure()
+    fig = plt.figure(dpi=400, figsize=(21, 9))
     ax = fig.add_subplot(121)
     ax.set_title("k-means")
     ax.set_xticks(range(len(xlabels)))
@@ -181,7 +119,7 @@ def draw_heat_map_2(data1, data2, s=2):
     ax.set_yticks(range(len(ylabels)))
     ax.set_yticklabels(ylabels)
     im = ax.imshow(data1_normed, cmap=plt.cm.hot, vmin=0, vmax=1)
-    cb = plt.colorbar(im, shrink=0.7)
+    cb = plt.colorbar(im, shrink=0.4)
     cb.set_ticks([0, 1])
     cb.set_ticklabels(["Low", "High"])
     cb.set_label("Intra-cluster variance", fontdict={"rotation": 270})
@@ -192,11 +130,12 @@ def draw_heat_map_2(data1, data2, s=2):
     ax.set_yticks(range(len(ylabels)))
     ax.set_yticklabels(ylabels)
     im = ax.imshow(data2_normed, cmap=plt.cm.hot, vmin=0, vmax=1)
-    cb = plt.colorbar(im, shrink=0.7)
+    cb = plt.colorbar(im, shrink=0.4)
     cb.set_ticks([0, 1])
     cb.set_ticklabels(["Low", "High"])
     cb.set_label("Intra-cluster variance", fontdict={"rotation": 270})
     plt.tight_layout()
+    plt.savefig(save_path, dpi=400)
     plt.show()
 
 
@@ -205,20 +144,33 @@ def get_engine():
         return "openpyxl"
     elif platform.system().lower() == "windows":
         return None
+    elif platform.system().lower() == "darwin":
+        return "openpyxl"
     return None
 
 
-def get_heat_map_data(K, patient_data, label, data_path):
-    dim_0 = len(patient_data)
-    dim_1 = len(patient_data[0])
+def fill_nan(clinic_list):
+    mean = np.nanmean(np.asarray(clinic_list))
+    return [item if not math.isnan(item) else mean for item in clinic_list]
+
+
+def get_heat_map_data(K, label):
+    pt_ids = np.load("data/ptid.npy", allow_pickle=True)
+    pt_dic = load_patient_dictionary(main_path)
+    dim_0 = len(list(pt_dic.keys()))
+    dim_1 = len(pt_dic[list(pt_dic.keys())[0]])
     label_match = np.asarray(label).reshape(dim_0 * dim_1)
     patient_data_match = []
     for i in range(dim_0):
         for j in range(dim_1):
-            patient_data_match.append([patient_data[i][j][3], patient_data[i][j][2]])
-    data = pd.read_excel(data_path, engine=get_engine())  # main_path + 'DPS_ATN/MRI_information_All_Measurement.xlsx'
-    target_labels = ['EcogPtMem','EcogPtLang','EcogPtVisspat','EcogPtPlan','EcogPtOrgan','EcogPtDivatt','EcogPtTotal','EcogSPMem','EcogSPLang','EcogSPVisspat','EcogSPPlan','EcogSPOrgan','EcogSPDivatt','EcogSPTotal'] #["MMSE", "CDRSB", "ADAS13"]
+            patient_data_match.append([pt_ids[i], pt_dic[pt_ids[i]][j]])
+    data = pd.read_excel(main_path + 'data/MRI_information_All_Measurement.xlsx', engine=get_engine())  # main_path + 'DPS_ATN/MRI_information_All_Measurement.xlsx'
+    target_labels = CLINICAL_LABELS #["MMSE", "CDRSB", "ADAS13"]
     data = data[["PTID", "EXAMDATE"] + target_labels]
+    data["EXAMDATE"] = [str(item) for item in data["EXAMDATE"]]
+    data["PTID"] = [str(item) for item in data["PTID"]]
+    for one_label in target_labels:
+        data[one_label] = fill_nan(data[one_label])
     # data["EXAMDATE"] = data["EXAMDATE"].astype(str)
     result = []
     for i in range(K):
@@ -229,10 +181,12 @@ def get_heat_map_data(K, patient_data, label, data_path):
             if label_match[j] != i:
                 continue
             for one_target_label in target_labels:
-                tmp = data.loc[(data["PTID"] == patient_data_match[j][0]) & (data["EXAMDATE"] == patient_data_match[j][1])][one_target_label].values[0]
+                # tmp = data.loc[(data["PTID"] == patient_data_match[j][0]) & (data["EXAMDATE"] == str(patient_data_match[j][1]))][one_target_label].values[0]
+                tmp = data.loc[(data["PTID"] == patient_data_match[j][0]) & (data["EXAMDATE"] == str(patient_data_match[j][1]))][one_target_label].values[0]
+                # print(tmp1, end="")
                 if math.isnan(tmp):
                     print("bad in matching PTID = '{}'".format(patient_data_match[j][0]), " EXAMDATE = '{}'".format(patient_data_match[j][1]))
-                    continue
+                    return 1
                 tmp_list = dic.get(one_target_label)
                 tmp_list.append(float(tmp))
                 dic[one_target_label] = tmp_list
@@ -240,7 +194,8 @@ def get_heat_map_data(K, patient_data, label, data_path):
     return result
 
 
-def judge_good_train(labels, heat_map_data, const_cn_ad_labels):
+def judge_good_train(labels, heat_map_data, flag=True, base_dic=None, base_res=None):
+    cn_ad_labels = np.load("data/cn_ad_labels.npy", allow_pickle=True)
     dic = dict()
     for i in range(5):
         dic[i] = 0
@@ -248,22 +203,30 @@ def judge_good_train(labels, heat_map_data, const_cn_ad_labels):
         for item in row:
             dic[item if (type(item) == int or type(item) == np.int32) else item[0]] += 1
     distribution = np.asarray([dic.get(i) for i in range(5)])
-    label_strings = create_label_string(labels, const_cn_ad_labels)
+    label_strings = create_label_string(labels, cn_ad_labels)
     distribution_string = "/".join(["{}({})".format(x, y) for x, y in zip(distribution, label_strings)])
     param_cluster_std = distribution.std()
     fourteen_sums = np.asarray(heat_map_data).sum(axis=0) # three_sums = np.asarray(heat_map_data).sum(axis=0)
 
-    judge = 0
     param_dic = dict()
     param_dic["Cluster_std"] = param_cluster_std
-    for i, one_label in enumerate(['EcogPtMem','EcogPtLang','EcogPtVisspat','EcogPtPlan','EcogPtOrgan','EcogPtDivatt','EcogPtTotal','EcogSPMem','EcogSPLang','EcogSPVisspat','EcogSPPlan','EcogSPOrgan','EcogSPDivatt','EcogSPTotal']):
+    for i, one_label in enumerate(CLINICAL_LABELS):
         param_dic[one_label + "_var"] = fourteen_sums[i]
+    clinical_judge_labels = [item + "_var" for item in CLINICAL_LABELS]
+    if flag:
+        judge = 1
+        for one_label in clinical_judge_labels:
+            if param_dic.get(one_label) > base_dic.get(one_label):
+                judge = 0
+                break
+    else:
+        judge = -1
     return judge, param_dic, distribution_string
 
 
-def save_record(main_path, index, distribution_string, judge, judge_params, comments, params):
+def save_record(main_path, index, distribution_string, judge, judge_params, comments, params=None):
     with open(main_path + "/record/record.csv", "a") as f:
-        f.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}".format(
+        f.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},".format(
             index,
             judge,
             distribution_string,
@@ -284,19 +247,20 @@ def save_record(main_path, index, distribution_string, judge, judge_params, comm
             judge_params.get("EcogSPTotal_var"),
             comments
         ))
-        f.write(",".join([str(params.get(one_key)) for one_key in list(params.keys())]))
+        if not params:
+            f.write("".join([","] * 21))
+        else:
+            f.write(",".join([str(params.get(one_key)) for one_key in list(params.keys())]))
         f.write("\n")
 
 
-def get_k_means_result(main_path):
-    atn_kmeans_cluster = np.load(main_path + 'data/atn_kmeans_cluster.npy')
-    atn_kmeans_cluster = np.asarray(atn_kmeans_cluster)
-    enze_patient_data = np.load(main_path + "data/enze_patient_data_new.npy", allow_pickle=True)
-    enze_patient_data = np.asarray(enze_patient_data)
-    res1 = get_heat_map_data(5, enze_patient_data, atn_kmeans_cluster, main_path + 'data/MRI_information_All_Measurement.xlsx')
-    judge, params, distribution_string = judge_good_train(atn_kmeans_cluster, res1)
-    # print(judge, params, distribution_string)
-    return res1
+def build_kmeans_result(main_path, kmeans_labels):
+    kmeans_labels = np.asarray(kmeans_labels)
+    res1 = get_heat_map_data(5, kmeans_labels)
+    judge, judge_params, distribution_string = judge_good_train(kmeans_labels, res1, False)
+    print(judge, judge_params, distribution_string)
+    save_record(main_path, -1, distribution_string, -1, judge_params, "kmeans_base")
+    return judge_params, res1
 
 
 def get_start_index(main_path):
@@ -307,26 +271,23 @@ def get_start_index(main_path):
 
 def get_ac_tpc_result(main_path, index):
     labels = np.load(main_path + 'saves/{}/proposed/trained/results/labels.npy'.format(index))
-    enze_patient_data = np.load(main_path + "data/enze_patient_data_new.npy", allow_pickle=True)
-    res = get_heat_map_data(5, enze_patient_data, labels, main_path + 'data/MRI_information_All_Measurement.xlsx')
+    res = get_heat_map_data(5, labels)
     return res
 
 
-def get_cn_ad_labels(main_path, pt_id_list):
+def build_cn_ad_labels(main_path):
+    pt_ids = np.load("data/ptid.npy", allow_pickle=True)
+    pt_dic = load_patient_dictionary(main_path)
     clinical_score = pd.read_excel(main_path + 'data/MRI_information_All_Measurement.xlsx', engine=get_engine())
     cn_ad_labels = []
-    dic = dict()
     for i in range(320):  # [148*148，[label tuple]，VISCODE，patientID]
-        first_scan_label = list(clinical_score[clinical_score["PTID"] == pt_id_list[i]]["DX"])[0]
-        last_scan_label = list(clinical_score[clinical_score["PTID"] == pt_id_list[i]]["DX"])[-1]
-        for scan_label in [first_scan_label, last_scan_label]:
-            if scan_label not in dic:
-                dic[scan_label] = 1
-            else:
-                dic[scan_label] += 1
-        cn_ad_labels.append([first_scan_label, last_scan_label])
-    # print(dic)
-    return np.asarray(cn_ad_labels)
+        first_scan_label = list(clinical_score[(clinical_score["PTID"] == pt_ids[i]) & (clinical_score["EXAMDATE"] == pt_dic[pt_ids[i]][0])]["DX"])[0]
+        # print(len(list(clinical_score[(clinical_score["PTID"] == pt_ids[i]) & (clinical_score["EXAMDATE"] == pt_dic[pt_ids[i]][0])]["DX"])), len(list(clinical_score[(clinical_score["PTID"] == pt_ids[i]) & (clinical_score["EXAMDATE"] == pt_dic[pt_ids[i]][1])]["DX"])))
+        last_scan_label = list(clinical_score[(clinical_score["PTID"] == pt_ids[i]) & (clinical_score["EXAMDATE"] == pt_dic[pt_ids[i]][1])]["DX"])[0]
+        cn_ad_labels.append([name_label(first_scan_label), name_label(last_scan_label)])
+    # print(cn_ad_labels)
+    np.save("data/cn_ad_labels.npy", cn_ad_labels, allow_pickle=True)
+    # return np.asarray(cn_ad_labels)
 
 
 def create_label_string(cluster_labels, const_cn_ad_labels):
@@ -338,9 +299,9 @@ def create_label_string(cluster_labels, const_cn_ad_labels):
         dic["Other"] = 0
         dic_list.append(dic)
 
-    for i in range(320):
-        for j in range(2):
-            tmp_cluster_id = cluster_labels[i][j] if type(cluster_labels[i][j]) == int else cluster_labels[i][j][0]
+    for i in range(len(cluster_labels)):
+        for j in range(len(cluster_labels[0])):
+            tmp_cluster_id = cluster_labels[i][j]
             if const_cn_ad_labels[i][j] == "AD":
                 dic_list[tmp_cluster_id]["AD"] += 1
             elif const_cn_ad_labels[i][j] == "CN":
@@ -349,23 +310,157 @@ def create_label_string(cluster_labels, const_cn_ad_labels):
                 dic_list[tmp_cluster_id]["Other"] += 1
     # for dic in dic_list:
     #     print(dic)
-    return ["{}+{}+{}".format(dic.get("CN"), dic.get("AD"), dic.get("Other")) for dic in dic_list]
+    return ["{}+{}".format(dic.get("CN"), dic.get("AD")) for dic in dic_list]
 
 
-def initial_record():
-    if not os.path.exists("record/record.csv"):
-        copyfile("record/record_0.csv", "record/record.csv")
+def initial_record(main_path, data_x, seed_count=10):
+    if not os.path.exists(main_path + "record/record.csv"):
+        copyfile(main_path + "record/record_0.csv", main_path + "record/record.csv")
+        clinical_judge_labels = [item + "_var" for item in CLINICAL_LABELS]
+        dic = dict()
+        res_all = []
+        for one_label in clinical_judge_labels:
+            dic[one_label] = 0
+        for seed in range(seed_count):
+            kmeans_labels = get_kmeans_base(data_x, seed)
+            tmp_params, res = build_kmeans_result(main_path, kmeans_labels)
+            res_all.append(res)
+            for one_label in clinical_judge_labels:
+                dic[one_label] += tmp_params.get(one_label)
+        for one_label in clinical_judge_labels:
+            dic[one_label] = round(dic[one_label] / seed_count, 2)
+        with open("data/initial/base_dic.pkl", "wb") as f:
+            pickle.dump(dic, f)
+        np.save("data/initial/base_res.npy", res_all[0], allow_pickle=True)
+        save_record(main_path, 0, "None", -1, dic, "kmeans_base_average")
+        return dic, res_all[0]
+    else:
+        with open("data/initial/base_dic.pkl", "wb") as f:
+            dic = pickle.load(f)
+        base_res = np.load("data/initial/base_res.npy", allow_pickle=True)
+        return dic, base_res
+
+
+def name_label(label):
+    if label in ["CN", "SMC", "EMCI"]:
+        return "CN"
+    elif label in ["LMCI", "AD"]:
+        return "AD"
+    else:
+        return None
+
+
+def build_patient_dictionary(main_path):
+    pt_ids = np.load("data/ptid.npy", allow_pickle=True)
+    clinical_score = pd.read_excel(main_path + 'data/MRI_information_All_Measurement.xlsx', engine=get_engine())
+    dic = dict()
+    # ['EcogPtMem','EcogPtLang','EcogPtVisspat','EcogPtPlan','EcogPtOrgan','EcogPtDivatt','EcogPtTotal','EcogSPMem','EcogSPLang','EcogSPVisspat','EcogSPPlan','EcogSPOrgan','EcogSPDivatt','EcogSPTotal']
+    for one_pt_id in tqdm(pt_ids):
+        dates = list(clinical_score[(clinical_score["PTID"] == one_pt_id) & (pd.notnull(clinical_score["EcogPtMem"]))]["EXAMDATE"])
+        # dates = list(clinical_score[
+        #                       (clinical_score["PTID"] == one_pt_id) &
+        #                       (pd.notnull(clinical_score["EcogPtMem"])) &
+        #                       (pd.notnull(clinical_score["EcogPtLang"])) &
+        #                       (pd.notnull(clinical_score["EcogPtVisspat"])) &
+        #                       (pd.notnull(clinical_score["EcogPtPlan"])) &
+        #                       (pd.notnull(clinical_score["EcogPtOrgan"])) &
+        #                       (pd.notnull(clinical_score["EcogPtDivatt"])) &
+        #                       (pd.notnull(clinical_score["EcogPtTotal"])) &
+        #                       (pd.notnull(clinical_score["EcogSPMem"])) &
+        #                       (pd.notnull(clinical_score["EcogSPLang"])) &
+        #                       (pd.notnull(clinical_score["EcogSPVisspat"])) &
+        #                       (pd.notnull(clinical_score["EcogSPPlan"])) &
+        #                       (pd.notnull(clinical_score["EcogSPOrgan"])) &
+        #                       (pd.notnull(clinical_score["EcogSPDivatt"])) &
+        #                       (pd.notnull(clinical_score["EcogSPTotal"]))
+        #                       ]["EXAMDATE"])
+        first_date = dates[0]
+        last_date = dates[-1]
+        dic[one_pt_id] = [first_date, last_date]
+    with open(main_path + "data/patient_dictionary.pkl", "wb") as f:
+        pickle.dump(dic, f)
+
+
+def load_patient_dictionary(main_path):
+    with open(main_path + "data/patient_dictionary.pkl", "rb") as f:
+        pt_dic = pickle.load(f)
+    return pt_dic
+
+
+def get_kmeans_base(data_x, seed=0):
+    data = []
+    for i in range(len(data_x)):
+        for j in range(len(data_x[0])):
+            data.append(data_x[i][j])
+    kmeans = KMeans(n_clusters=5, random_state=seed).fit(data)
+    kmeans_output = []
+    for i in range(len(data_x)):
+        tmp = kmeans.labels_[i * 2: i * 2 + 2]
+        kmeans_output.append(tmp)
+    kmeans_output = np.asarray(kmeans_output)
+    return kmeans_output
+
+
+def build_data_x(main_path):
+    data_network = scio.loadmat(main_path + "data/network_centrality.mat")
+    betweenness = np.asarray([item[0] for item in data_network["betweenness"]])
+    closeness = np.asarray([item[0] for item in data_network["closeness"]])
+    degree = np.asarray([item[0] for item in data_network["degree"]])
+    laplacian = np.asarray([item[0] for item in data_network["laplacian"]])
+    pagerank = np.asarray([item[0] for item in data_network["pagerank"]])
+    data_x = np.load("data/data_x_new.npy", allow_pickle=True)
+    data_x_alpha1 = data_x
+    data_x_alpha2 = []
+    data_x_alpha3 = []
+    data_x_alpha4 = []
+    for i in range(len(data_x)):
+        data_x_alpha2.append([np.concatenate((data_x[i][j], laplacian), axis=0) for j in range(len(data_x[0]))])
+        data_x_alpha3.append([np.concatenate((data_x[i][j], degree), axis=0) for j in range(len(data_x[0]))])
+        data_x_alpha4.append([np.concatenate((data_x[i][j], betweenness, closeness, degree, pagerank, laplacian), axis=0) for j in range(len(data_x[0]))])
+    data_x_alpha2 = np.asarray(data_x_alpha2)
+    data_x_alpha3 = np.asarray(data_x_alpha3)
+    data_x_alpha4 = np.asarray(data_x_alpha4)
+    print(data_x_alpha1.shape)
+    print(data_x_alpha2.shape)
+    print(data_x_alpha3.shape)
+    print(data_x_alpha4.shape)
+    np.save(main_path + "data/data_x/data_x_alpha1.npy", data_x_alpha1, allow_pickle=True)
+    np.save(main_path + "data/data_x/data_x_alpha2.npy", data_x_alpha2, allow_pickle=True)
+    np.save(main_path + "data/data_x/data_x_alpha3.npy", data_x_alpha3, allow_pickle=True)
+    np.save(main_path + "data/data_x/data_x_alpha4.npy", data_x_alpha4, allow_pickle=True)
+
+
 
 
 if __name__ == "__main__":
-    warnings.filterwarnings("ignore")
+    # warnings.filterwarnings("ignore")
+    # pt_ids = np.load("data/ptid.npy", allow_pickle=True)
+    # print(pt_ids)
     main_path = os.path.dirname(os.path.abspath("__file__")) + "/"
-    enze_patient_data = np.load(main_path + "data/enze_patient_data_new.npy", allow_pickle=True)
-    pt_id_list = [item[0][3] for item in enze_patient_data]
-    # print(pt_id_list)
-    cn_ad_labels = get_cn_ad_labels(main_path, pt_id_list)
-    labels = np.load(main_path + 'saves/{}/proposed/trained/results/labels.npy'.format(1146))
-    print(create_label_string(labels, cn_ad_labels))
+    # build_data_x(main_path)
+    # # build_patient_dictionary(main_path)
+    # data_x = load_data(main_path, "/data/data_x_new.npy")
+    # initial_record(main_path, data_x, 2)
+    # for item in CLINICAL_LABELS:
+    #     print("{}_var,".format(item), end="")
+
+
+    # build_cn_ad_labels(main_path)
+    data_x = load_data(main_path, "/data/data_x_new.npy")
+    base_res = np.load("data/initial/base_res.npy", allow_pickle=True)
+    #res = get_heat_map_data(5, base_res)
+    draw_heat_map_2(base_res, base_res)
+    # build_patient_dictionary(main_path)
+    # pt_dic = load_patient_dictionary(main_path)
+    # print(pt_dic)
+    # print(type(pt_dic.get("002_S_0413")[0]))
+    # print(pt_dic.keys())
+    # enze_patient_data = np.load(main_path + "data/enze_patient_data_new.npy", allow_pickle=True)
+    # pt_id_list = [item[0][3] for item in enze_patient_data]
+    # # print(pt_id_list)
+    # cn_ad_labels = get_cn_ad_labels(main_path, pt_id_list)
+    # labels = np.load(main_path + 'saves/{}/proposed/trained/results/labels.npy'.format(1146))
+    # print(create_label_string(labels, cn_ad_labels))
     # p = {
     #     "Cluster_std": 30,
     #     "MMSE_var": 50,
