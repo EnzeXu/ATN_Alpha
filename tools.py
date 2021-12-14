@@ -214,28 +214,26 @@ def judge_good_train(labels, heat_map_data, flag=True, base_dic=None, base_res=N
         param_dic[one_label + "_var"] = fourteen_sums[i]
     clinical_judge_labels = [item + "_var" for item in CLINICAL_LABELS]
     if flag:
-        judge = 1
+        judge = 0
         for one_label in clinical_judge_labels:
             if np.isnan(param_dic.get(one_label)):
                 judge = -1
                 break
         if judge != -1:
-            if param_dic.get("Cluster_std") > base_dic.get("Cluster_std"):
-                judge = 0
-            else:
-                count = 0
-                for one_label in clinical_judge_labels:
-                    if param_dic.get(one_label) < base_dic.get(one_label):
-                        count += 1
-                if count < len(clinical_judge_labels) / 2:
-                    judge = 0
+            if param_dic.get("Cluster_std") < base_dic.get("Cluster_std"):
+                judge += 1
+
+            for one_label in clinical_judge_labels:
+                if param_dic.get(one_label) < base_dic.get(one_label):
+                    judge += 1
+
     else:
         judge = -1
     return judge, param_dic, distribution_string
 
 
-def save_record(main_path, index, distribution_string, judge, judge_params, comments, params=None):
-    with open(main_path + "/record/record.csv", "a") as f:
+def save_record(main_path, index, distribution_string, judge, judge_params, comments, data_name, params=None):
+    with open(main_path + "record/{}/record.csv".format(data_name), "a") as f:
         f.write("{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},".format(
             index,
             judge,
@@ -264,17 +262,17 @@ def save_record(main_path, index, distribution_string, judge, judge_params, comm
         f.write("\n")
 
 
-def build_kmeans_result(main_path, kmeans_labels):
+def build_kmeans_result(main_path, kmeans_labels, data_name):
     kmeans_labels = np.asarray(kmeans_labels)
     res1 = get_heat_map_data(main_path, 5, kmeans_labels)
     judge, judge_params, distribution_string = judge_good_train(kmeans_labels, res1, False)
     print(judge, judge_params, distribution_string)
-    save_record(main_path, -1, distribution_string, -1, judge_params, "kmeans_base")
+    save_record(main_path, -1, distribution_string, -1, judge_params, "kmeans_base", data_name)
     return judge_params, res1
 
 
-def get_start_index(main_path):
-    df = pd.read_csv(main_path + "record/record.csv")
+def get_start_index(main_path, data_name):
+    df = pd.read_csv(main_path + "record/{}/record.csv".format(data_name))
     print(list(df["Id"]))
     start_index = list(df["Id"])[-1] + 1
     print(start_index)
@@ -326,9 +324,9 @@ def create_label_string(cluster_labels, const_cn_ad_labels):
     return ["{}+{}".format(dic.get("CN"), dic.get("AD")) for dic in dic_list]
 
 
-def initial_record(main_path, data_x, seed_count=10):
-    if not os.path.exists(main_path + "record/record.csv"):
-        copyfile(main_path + "record/record_0.csv", main_path + "record/record.csv")
+def initial_record(main_path, data_x, data_name, seed_count=10):
+    if not os.path.exists(main_path + "record/{}/record.csv".format(data_name)):
+        copyfile(main_path + "record/record_0.csv", main_path + "record/{}/record.csv".format(data_name))
         clinical_judge_labels = ["Cluster_std"] + [item + "_var" for item in CLINICAL_LABELS]
         dic = dict()
         res_all = []
@@ -336,7 +334,7 @@ def initial_record(main_path, data_x, seed_count=10):
             dic[one_label] = 0
         for seed in range(seed_count):
             kmeans_labels = get_kmeans_base(data_x, seed)
-            tmp_params, res = build_kmeans_result(main_path, kmeans_labels)
+            tmp_params, res = build_kmeans_result(main_path, kmeans_labels, data_name)
             res_all.append(res)
             for one_label in clinical_judge_labels:
                 dic[one_label] += tmp_params.get(one_label)
@@ -345,7 +343,7 @@ def initial_record(main_path, data_x, seed_count=10):
         with open("data/initial/base_dic.pkl", "wb") as f:
             pickle.dump(dic, f)
         np.save("data/initial/base_res.npy", res_all[0], allow_pickle=True)
-        save_record(main_path, 0, "None", -1, dic, "kmeans_base_average")
+        save_record(main_path, 0, "None", -1, dic, "kmeans_base_average", data_name)
         return dic, res_all[0]
     else:
         with open("data/initial/base_dic.pkl", "rb") as f:

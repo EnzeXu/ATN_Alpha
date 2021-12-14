@@ -327,13 +327,13 @@ def start(params, opt):
         comments = platform.platform()
 
     data_x = load_data(main_path, "/data/data_x/data_x_{}.npy".format(opt.data))
-    base_dic, base_res = initial_record(main_path, data_x, 5)
-    start_index = get_start_index(main_path)
+    base_dic, base_res = initial_record(main_path, data_x, opt.data, 5)
+    start_index = get_start_index(main_path, opt.data)
 
     for i in range(times):
         j, p, ds = train(main_path, data_x, start_index + i, params, base_dic, base_res)
-        save_record(main_path, start_index + i, ds, j, p, comments, params)
-        get_start_index(main_path)
+        save_record(main_path, start_index + i, ds, j, p, comments, opt.data, params)
+        get_start_index(main_path, opt.data)
 
 
 if __name__ == "__main__":
