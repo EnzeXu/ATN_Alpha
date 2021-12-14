@@ -266,6 +266,7 @@ def build_kmeans_result(main_path, kmeans_labels):
 def get_start_index(main_path):
     df = pd.read_csv(main_path + "record/record.csv")
     start_index = list(df["Id"])[-1] + 1
+    start_index = max(start_index, 1)
     return start_index
 
 
