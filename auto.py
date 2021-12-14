@@ -333,6 +333,7 @@ def start(params, opt):
     for i in range(times):
         j, p, ds = train(main_path, data_x, start_index + i, params, base_dic, base_res)
         save_record(main_path, start_index + i, ds, j, p, comments, params)
+        get_start_index(main_path)
 
 
 if __name__ == "__main__":

@@ -216,9 +216,19 @@ def judge_good_train(labels, heat_map_data, flag=True, base_dic=None, base_res=N
     if flag:
         judge = 1
         for one_label in clinical_judge_labels:
-            if np.isnan(param_dic.get(one_label)) or param_dic.get(one_label) > base_dic.get(one_label):
-                judge = 0
+            if np.isnan(param_dic.get(one_label)):
+                judge = -1
                 break
+        if judge != -1:
+            if param_dic.get("Cluster_std") > base_dic.get("Cluster_std"):
+                judge = 0
+            else:
+                count = 0
+                for one_label in clinical_judge_labels:
+                    if param_dic.get(one_label) < base_dic.get(one_label):
+                        count += 1
+                if count < len(clinical_judge_labels) / 2:
+                    judge = 0
     else:
         judge = -1
     return judge, param_dic, distribution_string
@@ -265,7 +275,9 @@ def build_kmeans_result(main_path, kmeans_labels):
 
 def get_start_index(main_path):
     df = pd.read_csv(main_path + "record/record.csv")
+    print(list(df["Id"]))
     start_index = list(df["Id"])[-1] + 1
+    print(start_index)
     start_index = max(start_index, 1)
     return start_index
 
@@ -444,13 +456,13 @@ if __name__ == "__main__":
     # initial_record(main_path, data_x, 2)
     # for item in CLINICAL_LABELS:
     #     print("{}_var,".format(item), end="")
-
+    get_start_index(main_path)
 
     # build_cn_ad_labels(main_path)
-    data_x = load_data(main_path, "/data/data_x_new.npy")
-    base_res = np.load("data/initial/base_res.npy", allow_pickle=True)
-    #res = get_heat_map_data(main_path, 5, base_res)
-    draw_heat_map_2(base_res, base_res)
+    # data_x = load_data(main_path, "/data/data_x_new.npy")
+    # base_res = np.load("data/initial/base_res.npy", allow_pickle=True)
+    # #res = get_heat_map_data(main_path, 5, base_res)
+    # draw_heat_map_2(base_res, base_res)
     # build_patient_dictionary(main_path)
     # pt_dic = load_patient_dictionary(main_path)
     # print(pt_dic)
