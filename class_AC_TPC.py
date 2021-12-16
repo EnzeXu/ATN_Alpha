@@ -17,6 +17,7 @@ def log(x):
 def div(x, y):
     return tf.div(x, (y + 1e-8))
 
+
 def get_seq_length(sequence):
     used = tf.sign(tf.reduce_max(tf.abs(sequence), 2))
     tmp_length = tf.reduce_sum(used, 1)
@@ -115,7 +116,7 @@ class AC_TPC:
                                 net = x_
                             net = tf.contrib.layers.fully_connected(inputs=net, num_outputs=h_dim_, activation_fn=activation_fn, scope='selector_'+str(tmp_layer))
                             net = tf.nn.dropout(net, keep_prob=self.keep_prob)
-                        out =  tf.contrib.layers.fully_connected(inputs=net, num_outputs=o_dim_, activation_fn=out_fn, scope='selector_out')  
+                        out = tf.contrib.layers.fully_connected(inputs=net, num_outputs=o_dim_, activation_fn=out_fn, scope='selector_out')
                 return out
             
             
@@ -139,7 +140,7 @@ class AC_TPC:
                                 net = x_
                             net = tf.contrib.layers.fully_connected(inputs=net, num_outputs=h_dim_, activation_fn=activation_fn, scope='predictor_'+str(tmp_layer))
                             net = tf.nn.dropout(net, keep_prob=self.keep_prob)
-                        out =  tf.contrib.layers.fully_connected(inputs=net, num_outputs=o_dim_, activation_fn=out_fn, scope='predictor_out')  
+                        out = tf.contrib.layers.fully_connected(inputs=net, num_outputs=o_dim_, activation_fn=out_fn, scope='predictor_out')
                 return out
 
             
