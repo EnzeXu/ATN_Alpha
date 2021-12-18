@@ -412,13 +412,14 @@ def get_kmeans_base(data_x, seed=0):
     return kmeans_output
 
 
-def build_data_x(main_path):
+def build_data_x_alpha(main_path):
     data_network = scio.loadmat(main_path + "data/network_centrality.mat")
-    betweenness = np.asarray([item[0] for item in data_network["betweenness"]])
-    closeness = np.asarray([item[0] for item in data_network["closeness"]])
-    degree = np.asarray([item[0] for item in data_network["degree"]])
-    laplacian = np.asarray([item[0] for item in data_network["laplacian"]])
-    pagerank = np.asarray([item[0] for item in data_network["pagerank"]])
+    betweenness = np.abs(np.asarray([item[0] for item in data_network["betweenness"]]))
+    closeness = np.abs(np.asarray([item[0] for item in data_network["closeness"]]))
+    degree = np.abs(np.asarray([item[0] for item in data_network["degree"]]))
+    laplacian = np.abs(np.asarray([item[0] for item in data_network["laplacian"]]))
+    pagerank = np.abs(np.asarray([item[0] for item in data_network["pagerank"]]))
+
     data_x = np.load("data/data_x_new.npy", allow_pickle=True)
     data_x_alpha1 = data_x
     data_x_alpha2 = []
@@ -454,7 +455,7 @@ if __name__ == "__main__":
     # initial_record(main_path, data_x, 2)
     # for item in CLINICAL_LABELS:
     #     print("{}_var,".format(item), end="")
-    get_start_index(main_path)
+    build_data_x_alpha(main_path)
 
     # build_cn_ad_labels(main_path)
     # data_x = load_data(main_path, "/data/data_x_new.npy")
